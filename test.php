@@ -66,7 +66,7 @@ $vendors = $pdo->query("SELECT * FROM vendor")->fetchAll(PDO::FETCH_ASSOC);
 </head>
 <body>
 
-    <h2>Vendor Management (C U D Frontend)</h2>
+    <h2>Vendor Management </h2>
 
     <div class="form-container">
         <h3>Add New Vendor</h3>
