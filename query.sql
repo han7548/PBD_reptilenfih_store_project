@@ -297,16 +297,25 @@ DELIMITER ;
 
 -----------------------VIEWEWWEWEW--------------------
 
-CREATE VIEW view_role AS 
-SELECT idrole, nama_role FROM role;
+CREATE OR REPLACE VIEW view_role AS 
+SELECT idrole AS 'no', nama_role 
+FROM role;
 
-CREATE VIEW view_satuan AS
-SELECT idsatuan AS 'no' , nama_satuan AS nama, STATUS as 'status satuan' 
+CREATE OR REPLACE VIEW view_satuan AS
+SELECT idsatuan AS 'no' , nama_satuan AS nama, 
+CASE 
+WHEN STATUS = 1 THEN 'Active'
+ELSE 'INACTIVE'
+END AS status
 FROM satuan;
 
 
-CREATE VIEW view_vendor AS
-SELECT idvendor AS 'no', nama_vendor, badan_hukum, status as status_vendor 
+CREATE OR REPLACE VIEW view_vendor AS
+SELECT idvendor AS 'no', nama_vendor, badan_hukum,
+CASE 
+WHEN STATUS = 'A' THEN 'Active'
+ELSE 'INACTIVE'
+END AS status
 FROM vendor;
 
 
@@ -316,13 +325,24 @@ FROM USER u
 JOIN role r ON u.idrole = r.idrole;
 
 
-CREATE VIEW view_barang AS
-SELECT b.idbarrang AS 'no', b.jenis, b.nama, s.nama_satuan, b.STATUS as status_barang, b.harga
+CREATE OR REPLACE VIEW view_barang AS
+SELECT b.idbarrang AS 'no', b.jenis, b.nama, s.nama_satuan, b.harga,
+CASE 
+WHEN b.STATUS = 1 THEN 'Active'
+ELSE 'INACTIVE'
+END AS status
 FROM barang b
 JOIN satuan s ON b.idsatuan = s.idsatuan;
 
 
-CREATE VIEW view_margin AS
-SELECT m.idmargin_penjualan AS 'no', m.persen, m.STATUS as status_margin, u.username AS created_by, m.created_at
+CREATE OR REPLACE VIEW view_margin AS
+SELECT m.idmargin_penjualan AS 'no', m.persen, u.username AS created_by, m.created_at,
+CASE 
+WHEN m.STATUS = 1 THEN 'Active'
+ELSE 'INACTIVE'
+END AS status
 FROM margin_penjualan m
 JOIN USER u ON m.iduser = u.iduser;
+
+
+SELECT * FROM view_barang;
