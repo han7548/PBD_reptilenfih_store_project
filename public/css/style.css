@@ -1,0 +1,63 @@
+
+:root {
+    --cornsilk: #FEFAE0; /* Backgrounds */
+    --olive-leaf: #606C38; /* Buttons, Accents */
+    --black-forest: #283618; /* Headings, Text, Navbars */
+    --white: #FFFFFF;
+}
+
+body {
+    background-color: var(--cornsilk);
+    color: var(--black-forest);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+nav {
+    background-color: var(--black-forest);
+    color: var(--cornsilk);
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+}
+
+nav a {
+    color: var(--cornsilk);
+    text-decoration: none;
+    margin-left: 15px;
+    font-weight: bold;
+}
+
+.btn-primary {
+    background-color: var(--olive-leaf);
+    color: var(--cornsilk);
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.btn-primary:hover {
+    background-color: var(--black-forest);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: var(--white);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+th {
+    background-color: var(--olive-leaf);
+    color: var(--white);
+    padding: 12px;
+    text-align: left;
+}
+
+td {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+}
