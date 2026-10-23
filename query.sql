@@ -293,3 +293,36 @@ DELETE FROM vendor WHERE idvendor = p_idvendor;
 END$$
 
 DELIMITER ;
+
+
+-----------------------VIEWEWWEWEW--------------------
+
+CREATE VIEW view_role AS 
+SELECT idrole, nama_role FROM role;
+
+CREATE VIEW view_satuan AS
+SELECT idsatuan AS 'no' , nama_satuan AS nama, STATUS as 'status satuan' 
+FROM satuan;
+
+
+CREATE VIEW view_vendor AS
+SELECT idvendor AS 'no', nama_vendor, badan_hukum, status as status_vendor 
+FROM vendor;
+
+
+CREATE VIEW view_user AS
+SELECT u.iduser AS 'no', u.username, r.nama_role
+FROM USER u
+JOIN role r ON u.idrole = r.idrole;
+
+
+CREATE VIEW view_barang AS
+SELECT b.idbarrang AS 'no', b.jenis, b.nama, s.nama_satuan, b.STATUS as status_barang, b.harga
+FROM barang b
+JOIN satuan s ON b.idsatuan = s.idsatuan;
+
+
+CREATE VIEW view_margin AS
+SELECT m.idmargin_penjualan AS 'no', m.persen, m.STATUS as status_margin, u.username AS created_by, m.created_at
+FROM margin_penjualan m
+JOIN USER u ON m.iduser = u.iduser;
