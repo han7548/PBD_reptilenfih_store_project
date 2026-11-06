@@ -125,27 +125,27 @@ $username = $_SESSION['username'] ?? 'Guest';
     <nav>
         <div class="nav-brand">Reptile & Fish Store</div>
         <div class="nav-links">
-            <!-- ADMIN SPECIFIC LINKS -->
-            <?php if ($role === 'Admin'): ?>
-                <a href="index.php?page=admin_dashboard">Dashboard</a>
-                <a href="index.php?page=all_views">Master Views</a> <!-- ADD THIS LINE -->
-                <a href="index.php?page=master_barang">Master Barang</a>
-                <a href="index.php?page=master_user">Master User</a>
-            <?php endif; ?>
+    <!-- ADMIN SPECIFIC LINKS -->
+    <?php if ($_SESSION['role'] === 'Admin'): ?>
+        <a href="index.php?page=admin_dashboard">Dashboard</a>
+        <a href="index.php?page=master_barang">Master Barang</a>
+        <a href="index.php?page=master_user">Master User</a>
+        <a href="index.php?page=kartu_stok">Kartu Stok Log</a>
+    <?php endif; ?>
 
-            <!-- MANAGER LINKS  -->
-            <?php if (in_array($role, ['Admin', 'Manager'])): ?>
-                <a href="index.php?page=pengadaan">Pengadaan (Restock)</a>
-                <a href="index.php?page=penerimaan">Penerimaan</a>
-            <?php endif; ?>
+    <!-- MANAGER LINKS (Admin also gets this) -->
+    <?php if (in_array($_SESSION['role'], ['Admin', 'Manager'])): ?>
+        <a href="index.php?page=pengadaan">Pengadaan & Penerimaan</a>
+    <?php endif; ?>
 
-            <!-- KASIR LINKS  -->
-            <?php if (in_array($role, ['Admin', 'Manager', 'Kasir'])): ?>
-                <a href="index.php?page=kasir_dashboard">POS Penjualan</a>
-            <?php endif; ?>
-            
-            <span class="nav-user">| Halo, <?= htmlspecialchars($username) ?> (<?= htmlspecialchars($role) ?>)</span>
-            <a href="index.php?action=logout" class="logout-btn">Logout</a>
-        </div>
+    <!-- KASIR & ALL ROLES LINKS -->
+    <?php if (in_array($_SESSION['role'], ['Admin', 'Manager', 'Kasir'])): ?>
+        <a href="index.php?page=kasir_dashboard">POS Penjualan</a>
+        <a href="index.php?page=laporan">Laporan Sales</a>
+    <?php endif; ?>
+    
+    <span class="nav-user">| Halo, <?= htmlspecialchars($_SESSION['username'] ?? '') ?> (<?= htmlspecialchars($_SESSION['role'] ?? '') ?>)</span>
+    <a href="index.php?action=logout" class="logout-btn">Logout</a>
+</div>
     </nav>
     <main></main>

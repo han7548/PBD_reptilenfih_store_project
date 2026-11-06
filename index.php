@@ -3,32 +3,56 @@ ini_set('display_errors', 1);
 error_reporting(E_ALL);
 session_start();
 
-// iya yah belom bikin bootstrap, habis ini deh aku benerin
 require_once 'config/Database.php';
 require_once 'classes/Auth.php';
 
-// Route Definitions nderr
+// Route Definitions
 $action = $_GET['action'] ?? '';
 $page = $_GET['page'] ?? 'login';
 
-// Form Submissions / POST requests
+// 1. Form Submissions / Actions (POST/GET Requests)
 if ($action) {
     switch ($action) {
         case 'login':
         case 'logout':
             require_once 'controllers/AuthController.php';
             break;
-        
+
+        // --- TAMBAHAN ACTION BARANG ---
+        case 'create_barang':
+        case 'update_barang':
+        case 'delete_barang':
+            Auth::checkAccess(['Admin']);
+            require_once 'controllers/BarangController.php';
+            break;
+        case 'create_user':
+case 'update_user':
+case 'delete_user':
+    Auth::checkAccess(['Admin']);
+    require_once 'controllers/UserController.php';
+    break;
+
+    case 'checkout_pos':
+    Auth::checkAccess(['Kasir', 'Manager', 'Admin']);
+    require_once 'controllers/TransaksiController.php';
+    break;
+
+    case 'create_pengadaan':
+case 'proses_penerimaan':
+case 'proses_retur':
+    Auth::checkAccess(['Manager', 'Admin']);
+    require_once 'controllers/PengadaanController.php';
+    break;
+
         default:
             die("Action not found.");
     }
     exit; 
 }
 
-
+// 2. Page Routing (Views)
 switch ($page) {
     case 'login':
-        
         if (isset($_SESSION['role'])) {
             header("Location: index.php?page=" . strtolower($_SESSION['role']) . "_dashboard");
             exit;
@@ -40,11 +64,18 @@ switch ($page) {
         Auth::checkAccess(['Admin']); 
         require_once 'views/admin/dashboard.php';
         break;
-        
-    case 'manager_dashboard':
-        Auth::checkAccess(['Manager', 'Admin']); 
-        require_once 'views/manager/dashboard.php';
+
+    // --- TAMBAHAN HALAMAN MASTER BARANG ---
+    case 'master_barang':
+        Auth::checkAccess(['Admin']);
+        require_once 'views/admin/master_barang.php';
         break;
+        
+    case 'pengadaan':
+case 'manager_dashboard':
+    Auth::checkAccess(['Manager', 'Admin']);
+    require_once 'views/manager/pengadaan.php';
+    break;
         
     case 'kasir_dashboard':
         Auth::checkAccess(['Kasir', 'Manager', 'Admin']); 
@@ -56,9 +87,22 @@ switch ($page) {
         break;
 
     case 'all_views':
-        Auth::checkAccess(['Admin']); // Only Admins should see all raw master data
+        Auth::checkAccess(['Admin']); 
         require_once 'views/admin/all_views.php';
         break;
+
+    case 'master_user':
+    Auth::checkAccess(['Admin']);
+    require_once 'views/admin/master_user.php';
+    break;
+
+    case 'kartu_stok':
+    Auth::checkAccess(['Admin', 'Manager']);
+    require_once 'views/admin/kartu_stok.php';
+    break;
+    
+
+    
         
     default:
         echo "<h2>404 - Page Not Found</h2>";
