@@ -67,7 +67,7 @@ switch ($page) {
 
     // --- TAMBAHAN HALAMAN MASTER BARANG ---
     case 'master_barang':
-        Auth::checkAccess(['Admin']);
+        Auth::checkAccess(['Manager','Admin']);
         require_once 'views/admin/master_barang.php';
         break;
         

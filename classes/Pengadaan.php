@@ -66,7 +66,7 @@ class Pengadaan {
 
     public function createPengadaanMulti($userId, $vendorId, array $items) {
         $jsonItems = json_encode($items);
-        $query = "CALL sp_create_pengadaan_multi(:iduser, :idvendor, :items)";
+        $query = "CALL sp_create_pengadaan_multi(:iduser, :idvendor, :items)"; // nih querynya
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':iduser', $userId, PDO::PARAM_INT);
         $stmt->bindParam(':idvendor', $vendorId, PDO::PARAM_INT);

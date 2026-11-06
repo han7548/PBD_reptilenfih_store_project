@@ -4,7 +4,7 @@ require_once 'views/layouts/header.php';
 ?>
 
 <h2>Admin Control Panel</h2>
-<p>Welcome to the main dashboard. From here, you have full control over the master data, and you can also access Manager and Cashier modules.</p>
+<p>YES I KNOW THE UI HURTS ONES EYE TO SEE WELL FIX IT LATER BUT Welcome to the main dashboard. From here, you have full control over the master data, and you can also access Manager and Cashier modules.</p>
 
 <div class="card-container">
     <div class="card">

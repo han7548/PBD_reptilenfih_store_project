@@ -5,7 +5,7 @@ class Barang {
     private $conn;
 
     public function __construct($db) {
-        $this->conn = $db;
+        $this->conn = $db; // INI KONEKSI DBNYA
     }
 
     // Read all items using the v_master_barang View

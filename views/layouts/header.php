@@ -127,7 +127,7 @@ $username = $_SESSION['username'] ?? 'Guest';
         <div class="nav-links">
     <!-- ADMIN SPECIFIC LINKS -->
     <?php if ($_SESSION['role'] === 'Admin'): ?>
-        <a href="index.php?page=admin_dashboard">Dashboard</a>
+        
         <a href="index.php?page=master_barang">Master Barang</a>
         <a href="index.php?page=master_user">Master User</a>
         <a href="index.php?page=kartu_stok">Kartu Stok Log</a>
@@ -135,6 +135,7 @@ $username = $_SESSION['username'] ?? 'Guest';
 
     <!-- MANAGER LINKS (Admin also gets this) -->
     <?php if (in_array($_SESSION['role'], ['Admin', 'Manager'])): ?>
+        <a href="index.php?page=master_barang">Master Barang</a>
         <a href="index.php?page=pengadaan">Pengadaan & Penerimaan</a>
     <?php endif; ?>
 
