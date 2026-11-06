@@ -6,6 +6,6 @@ ill build a proper class and stuff later, i just need to see it work right at th
 
 ### seperti biasa nginx + try tunnel cloudflare
 
-https://copies-ending-native-designation.trycloudflare.com
+https://primarily-son-depend-flat.trycloudflare.com
 
 seperti biasa link gonta ganti
