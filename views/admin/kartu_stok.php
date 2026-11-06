@@ -1,5 +1,5 @@
 <?php
-// views/admin/kartu_stok.php
+
 
 require_once 'classes/KartuStok.php';
 

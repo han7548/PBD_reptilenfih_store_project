@@ -1,5 +1,5 @@
 <?php
-// views/manager/pengadaan.php
+
 
 require_once 'classes/Pengadaan.php';
 

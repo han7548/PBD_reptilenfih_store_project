@@ -1,5 +1,5 @@
 <?php
-// classes/Penjualan.php
+
 
 class Penjualan {
     private $conn;

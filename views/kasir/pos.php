@@ -1,5 +1,5 @@
 <?php
-// views/kasir/pos.php
+
 
 require_once 'classes/Penjualan.php';
 

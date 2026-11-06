@@ -1,5 +1,5 @@
 <?php
-// views/admin/master_barang.php
+
 
 require_once 'classes/Barang.php';
 

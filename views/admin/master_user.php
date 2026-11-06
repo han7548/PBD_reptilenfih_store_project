@@ -1,5 +1,5 @@
 <?php
-// views/admin/master_user.php
+
 
 require_once 'classes/User.php';
 

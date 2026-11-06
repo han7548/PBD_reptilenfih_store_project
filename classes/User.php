@@ -1,5 +1,5 @@
 <?php
-// classes/User.php
+
 
 class User {
     private $conn;

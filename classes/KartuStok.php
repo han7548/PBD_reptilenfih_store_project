@@ -1,5 +1,5 @@
 <?php
-// classes/KartuStok.php
+
 
 class KartuStok {
     private $conn;

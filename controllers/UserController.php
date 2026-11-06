@@ -1,5 +1,5 @@
 <?php
-// controllers/UserController.php
+
 
 require_once 'classes/User.php';
 

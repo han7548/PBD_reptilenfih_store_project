@@ -1,5 +1,5 @@
 <?php
-// controllers/BarangController.php
+
 
 require_once 'classes/Barang.php';
 
