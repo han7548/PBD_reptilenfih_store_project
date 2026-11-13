@@ -1,250 +1,153 @@
 <?php
-
-
+// views/kasir/pos.php
 require_once 'classes/Penjualan.php';
-
 $db = new Database();
 $conn = $db->getConnection();
 $penjualanModel = new Penjualan($conn);
 
 $items = $penjualanModel->getAvailableBarang();
 $activeMargin = $penjualanModel->getActiveMargin();
+$cart = $_SESSION['pos_cart'] ?? [];
 
 require_once 'views/layouts/header.php';
 ?>
 
-<div style="margin-bottom: 25px;">
-    <h2 style="color: var(--black-forest); margin-bottom: 5px;">Kasir Point of Sale (Multi-Item Checkout)</h2>
-    <p style="color: #666; margin: 0;">Add multiple items to a single transaction receipt. Stock cards will update automatically for all items.</p>
+<h2 style="margin-top:0; color: var(--black-forest);">Point of Sale (POS)</h2>
+<p style="color: #666; margin-bottom: 20px;">Build your order in the cart. Stock is deducted only upon final checkout.</p>
+
+<!-- NEW: Active Margin Indicator for Lecturer Visibility -->
+<div style="background: var(--cornsilk); border-left: 4px solid var(--olive-leaf); padding: 12px 15px; margin-bottom: 25px; border-radius: 4px;">
+    <strong style="color: var(--black-forest);">Active Profit Margin: <?= htmlspecialchars($activeMargin['persen'] ?? 0) ?>%</strong>
+    <span style="color: #555; margin-left: 10px; font-size: 0.9rem;">(All item prices below have been automatically marked up by this percentage)</span>
 </div>
 
-<?php if (isset($_GET['msg']) && $_GET['msg'] === 'success'): ?>
-    <div style="background: #d4edda; color: #155724; padding: 12px; border-radius: 6px; margin-bottom: 20px; font-weight: bold;">
-        Multi-item transaction processed successfully! Stock card updated automatically for all items.
-    </div>
+<?php if (isset($_GET['msg'])): ?>
+    <div class="alert alert-success"><?= htmlspecialchars($_GET['msg']) ?></div>
 <?php elseif (isset($_GET['err'])): ?>
-    <div style="background: #f8d7da; color: #721c24; padding: 12px; border-radius: 6px; margin-bottom: 20px; font-weight: bold;">
-        Transaction Failed: <?= htmlspecialchars(urldecode($_GET['err'])) ?>
-    </div>
+    <div class="alert alert-danger"><?= htmlspecialchars($_GET['err']) ?></div>
 <?php endif; ?>
 
-<?php if (!$activeMargin): ?>
-    <div style="background: #fff3cd; color: #856404; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
-        <strong>Warning:</strong> No active margin setting found in `margin_penjualan`.
-    </div>
-<?php endif; ?>
-
-<div style="display: grid; grid-template-columns: 1fr 420px; gap: 25px; align-items: start;">
+<div style="display: flex; gap: 20px; align-items: flex-start;">
     
-    <!-- Available Inventory List -->
-    <div style="background: var(--white); padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <h3 style="color: var(--olive-leaf); margin-top: 0; border-bottom: 2px solid var(--cornsilk); padding-bottom: 10px;">Available Inventory</h3>
+    <!-- LEFT SIDE: Catalog & Add to Cart Form -->
+    <div class="card" style="flex: 1;">
+        <div class="card-header">Select Item</div>
         
-        <div style="overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse;">
+        <form action="index.php?action=add_to_cart" method="POST">
+            <div class="form-group">
+                <label>Pilih Barang</label>
+                <!-- JS Auto-fill triggers on change -->
+                <select name="idbarang" id="itemSelect" onchange="autoFillItemDetails()" required>
+                    <option value="">-- Choose Item --</option>
+                    <?php foreach ($items as $item): ?>
+                        <?php if($item['stock'] > 0): ?>
+                            <option value="<?= $item['idbarang'] ?>" 
+                                    data-nama="<?= htmlspecialchars($item['nama']) ?>" 
+                                    data-harga="<?= $item['harga_jual'] ?>" 
+                                    data-stock="<?= $item['stock'] ?>">
+                                <?= htmlspecialchars($item['nama']) ?> (Stok: <?= $item['stock'] ?>) - Rp <?= number_format($item['harga_jual'], 0, ',', '.') ?>
+                            </option>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <!-- Hidden fields to pass data to controller -->
+            <input type="hidden" name="nama_barang" id="hiddenNama">
+            <input type="hidden" name="max_stock" id="hiddenStock">
+
+            <div style="display: flex; gap: 15px;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Harga Satuan (Auto-filled)</label>
+                    <input type="number" name="harga" id="inputHarga" required readonly style="background: #eee;">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Qty</label>
+                    <input type="number" name="qty" id="inputQty" min="1" value="1" required>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%;">+ Add to Cart</button>
+        </form>
+    </div>
+
+    <!-- RIGHT SIDE: Active Session Cart -->
+    <div class="card" style="flex: 1.2;">
+        <div class="card-header">Current Cart</div>
+        
+        <div class="table-responsive">
+            <table>
                 <thead>
-                    <tr style="background-color: var(--olive-leaf); color: var(--white);">
-                        <th style="padding: 10px; text-align: left;">ID</th>
-                        <th style="padding: 10px; text-align: left;">Item Name</th>
-                        <th style="padding: 10px; text-align: left;">Unit</th>
-                        <th style="padding: 10px; text-align: right;">Price</th>
-                        <th style="padding: 10px; text-align: center;">Stock</th>
-                        <th style="padding: 10px; text-align: center;">Action</th>
+                    <tr>
+                        <th>Item</th>
+                        <th style="text-align:center;">Qty</th>
+                        <th style="text-align:right;">Subtotal</th>
+                        <th style="text-align:center;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if (!empty($items)): ?>
-                        <?php foreach ($items as $item): ?>
-                            <tr style="border-bottom: 1px solid #eee;">
-                                <td style="padding: 10px;"><?= htmlspecialchars($item['idbarang']) ?></td>
-                                <td style="padding: 10px; font-weight: bold; color: var(--black-forest);"><?= htmlspecialchars($item['nama']) ?></td>
-                                <td style="padding: 10px;"><?= htmlspecialchars($item['nama_satuan']) ?></td>
-                                <td style="padding: 10px; text-align: right;">Rp <?= number_format($item['harga'], 0, ',', '.') ?></td>
-                                <td style="padding: 10px; text-align: center;">
-                                    <span style="background: <?= $item['stock'] > 0 ? '#28a745' : '#dc3545' ?>; color: white; padding: 2px 8px; border-radius: 10px; font-weight: bold; font-size: 0.85rem;">
-                                        <?= htmlspecialchars($item['stock']) ?>
-                                    </span>
-                                </td>
-                                <td style="padding: 10px; text-align: center;">
-                                    <?php if ($item['stock'] > 0 && $activeMargin): ?>
-                                        <button type="button" 
-                                                onclick="addToPosCart(<?= $item['idbarang'] ?>, '<?= htmlspecialchars(addslashes($item['nama'])) ?>', <?= $item['harga'] ?>, <?= $item['stock'] ?>)"
-                                                style="background: var(--olive-leaf); color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;">
-                                            + Add
-                                        </button>
-                                    <?php else: ?>
-                                        <button disabled style="background: #ccc; color: #666; border: none; padding: 5px 10px; border-radius: 4px; cursor: not-allowed;">
-                                            Out of Stock
-                                        </button>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
+                    <?php 
+                    $grandTotal = 0;
+                    if (empty($cart)): ?>
+                        <tr><td colspan="4" style="text-align:center; color:#999;">Cart is empty</td></tr>
                     <?php else: ?>
-                        <tr><td colspan="6" style="padding: 15px; text-align: center;">No active inventory available.</td></tr>
+                        <?php foreach ($cart as $id => $c): 
+                            $sub = $c['qty'] * $c['harga'];
+                            $grandTotal += $sub;
+                        ?>
+                        <tr>
+                            <td>
+                                <strong><?= htmlspecialchars($c['nama']) ?></strong><br>
+                                <small>Rp <?= number_format($c['harga'], 0, ',', '.') ?></small>
+                            </td>
+                            <td style="text-align:center;"><?= $c['qty'] ?></td>
+                            <td style="text-align:right;">Rp <?= number_format($sub, 0, ',', '.') ?></td>
+                            <td style="text-align:center;">
+                                <a href="index.php?action=remove_from_cart&id=<?= $id ?>" style="color: var(--danger); text-decoration:none; font-weight:bold;">&times; Remove</a>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
                     <?php endif; ?>
                 </tbody>
             </table>
         </div>
-    </div>
 
-    <!-- Active Multi-Item Cart & Receipt -->
-    <div style="background: var(--white); padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); position: sticky; top: 20px;">
-        <h3 style="color: var(--black-forest); margin-top: 0; border-bottom: 2px solid var(--cornsilk); padding-bottom: 10px;">Transaction Receipt</h3>
-        
-        <form action="index.php?action=checkout_pos" method="POST" onsubmit="return validateCheckout()">
-            <input type="hidden" name="idmargin" value="<?= htmlspecialchars($activeMargin['idmargin_penjualan'] ?? '') ?>">
-            <input type="hidden" name="items_json" id="pos_items_json" value="[]">
-
-            <!-- Cart Table -->
-            <div style="max-height: 280px; overflow-y: auto; margin-bottom: 15px;">
-                <table style="width: 100%; border-collapse: collapse;" id="pos_cart_table">
-                    <thead>
-                        <tr style="background: var(--black-forest); color: var(--cornsilk); font-size: 0.85rem;">
-                            <th style="padding: 8px; text-align: left;">Item</th>
-                            <th style="padding: 8px; text-align: center;">Qty</th>
-                            <th style="padding: 8px; text-align: right;">Subtotal</th>
-                            <th style="padding: 8px;"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr><td colspan="4" style="text-align: center; padding: 15px; color: #999;">Cart is empty. Click "+ Add" on items to build receipt.</td></tr>
-                    </tbody>
-                </table>
+        <?php if (!empty($cart)): 
+            $ppn = round($grandTotal * 0.11);
+            $totalPay = $grandTotal + $ppn;
+        ?>
+        <div style="background: var(--bg-light); padding: 15px; border-radius: 5px; margin-top: 20px;">
+            <div style="display: flex; justify-content: space-between;"><span>Subtotal:</span> <strong>Rp <?= number_format($grandTotal, 0, ',', '.') ?></strong></div>
+            <div style="display: flex; justify-content: space-between;"><span>PPN (11%):</span> <strong>Rp <?= number_format($ppn, 0, ',', '.') ?></strong></div>
+            <hr>
+            <div style="display: flex; justify-content: space-between; font-size: 1.2rem; color: var(--black-forest);">
+                <span><strong>Total:</strong></span> <strong>Rp <?= number_format($totalPay, 0, ',', '.') ?></strong>
             </div>
+        </div>
 
-            <!-- Total Calculation Breakdown -->
-            <div style="background: var(--cornsilk); padding: 15px; border-radius: 6px; margin-bottom: 20px;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span>Grand Subtotal:</span>
-                    <strong id="lbl_pos_subtotal">Rp 0</strong>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span>PPN (11%):</span>
-                    <strong id="lbl_pos_ppn">Rp 0</strong>
-                </div>
-                <div style="display: flex; justify-content: space-between; border-top: 1px dashed var(--olive-leaf); padding-top: 8px; font-size: 1.15rem; color: var(--black-forest);">
-                    <strong>Total Pay:</strong>
-                    <strong id="lbl_pos_total">Rp 0</strong>
-                </div>
-            </div>
-
-            <button type="submit" id="btnPosCheckout" disabled class="btn-primary" 
-                    style="width: 100%; padding: 12px; font-size: 1rem; font-weight: bold; opacity: 0.5; cursor: not-allowed;">
-                Complete Multi-Item Checkout
-            </button>
+        <form action="index.php?action=checkout_pos" method="POST" style="margin-top: 15px;">
+            <input type="hidden" name="idmargin" value="<?= $activeMargin['idmargin_penjualan'] ?? 0 ?>">
+            <button type="submit" class="btn btn-success" style="width: 100%;">Complete Checkout</button>
         </form>
+        <?php endif; ?>
+
     </div>
 </div>
 
 <script>
-let posCart = [];
-
-function addToPosCart(idbarang, nama, harga, maxStock) {
-    const existingIndex = posCart.findIndex(item => item.idbarang === idbarang);
+// Auto-fill logic for the Price and hidden fields
+function autoFillItemDetails() {
+    const select = document.getElementById('itemSelect');
+    const option = select.options[select.selectedIndex];
     
-    if (existingIndex > -1) {
-        if (posCart[existingIndex].jumlah < maxStock) {
-            posCart[existingIndex].jumlah += 1;
-        } else {
-            alert(`Cannot add more. Stock limit for ${nama} is ${maxStock}.`);
-        }
+    if(option.value !== "") {
+        document.getElementById('inputHarga').value = option.getAttribute('data-harga');
+        document.getElementById('hiddenNama').value = option.getAttribute('data-nama');
+        document.getElementById('hiddenStock').value = option.getAttribute('data-stock');
+        document.getElementById('inputQty').max = option.getAttribute('data-stock');
     } else {
-        posCart.push({
-            idbarang: idbarang,
-            nama: nama,
-            harga: harga,
-            jumlah: 1,
-            maxStock: maxStock
-        });
+        document.getElementById('inputHarga').value = '';
     }
-    
-    renderPosCart();
-}
-
-function updateCartQty(index, newQty) {
-    newQty = parseInt(newQty) || 1;
-    if (newQty > posCart[index].maxStock) {
-        alert(`Cannot exceed available stock (${posCart[index].maxStock})!`);
-        posCart[index].jumlah = posCart[index].maxStock;
-    } else if (newQty < 1) {
-        posCart[index].jumlah = 1;
-    } else {
-        posCart[index].jumlah = newQty;
-    }
-    renderPosCart();
-}
-
-function removePosCartItem(index) {
-    posCart.splice(index, 1);
-    renderPosCart();
-}
-
-function renderPosCart() {
-    const tbody = document.querySelector('#pos_cart_table tbody');
-    tbody.innerHTML = '';
-    let grandSubtotal = 0;
-
-    if (posCart.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 15px; color: #999;">Cart is empty. Click "+ Add" on items to build receipt.</td></tr>';
-        document.getElementById('btnPosCheckout').disabled = true;
-        document.getElementById('btnPosCheckout').style.opacity = '0.5';
-        document.getElementById('btnPosCheckout').style.cursor = 'not-allowed';
-    } else {
-        posCart.forEach((item, index) => {
-            const itemSubtotal = item.harga * item.jumlah;
-            grandSubtotal += itemSubtotal;
-
-            tbody.innerHTML += `
-                <tr style="border-bottom: 1px solid #eee; font-size: 0.9rem;">
-                    <td style="padding: 8px;">
-                        <strong>${item.nama}</strong><br>
-                        <small style="color: #666;">Rp ${item.harga.toLocaleString('id-ID')}</small>
-                    </td>
-                    <td style="padding: 8px; text-align: center;">
-                        <input type="number" min="1" max="${item.maxStock}" value="${item.jumlah}" 
-                               onchange="updateCartQty(${index}, this.value)" 
-                               style="width: 50px; padding: 4px; text-align: center; border: 1px solid #ccc; border-radius: 4px;">
-                    </td>
-                    <td style="padding: 8px; text-align: right; font-weight: bold;">
-                        Rp ${itemSubtotal.toLocaleString('id-ID')}
-                    </td>
-                    <td style="padding: 8px; text-align: center;">
-                        <button type="button" onclick="removePosCartItem(${index})" style="color: #d9534f; border: none; background: none; cursor: pointer; font-weight: bold; font-size: 1.1rem;">&times;</button>
-                    </td>
-                </tr>
-            `;
-        });
-
-        const btn = document.getElementById('btnPosCheckout');
-        btn.disabled = false;
-        btn.style.opacity = '1';
-        btn.style.cursor = 'pointer';
-    }
-
-    const ppn = Math.round(grandSubtotal * 0.11);
-    const grandTotal = grandSubtotal + ppn;
-
-    document.getElementById('lbl_pos_subtotal').innerText = 'Rp ' + grandSubtotal.toLocaleString('id-ID');
-    document.getElementById('lbl_pos_ppn').innerText = 'Rp ' + ppn.toLocaleString('id-ID');
-    document.getElementById('lbl_pos_total').innerText = 'Rp ' + grandTotal.toLocaleString('id-ID');
-}
-
-function validateCheckout() {
-    if (posCart.length === 0) {
-        alert("Cart is empty!");
-        return false;
-    }
-
-    // Format array to match procedure expected JSON payload
-    const payload = posCart.map(item => ({
-        idbarang: item.idbarang,
-        jumlah: item.jumlah,
-        harga: item.harga
-    }));
-
-    document.getElementById('pos_items_json').value = JSON.stringify(payload);
-    return true;
 }
 </script>
 

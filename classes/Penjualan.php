@@ -10,11 +10,21 @@ class Penjualan {
 
     // Fetch active items alongside real-time stock from fn_get_current_stock
     public function getAvailableBarang() {
-        $query = "SELECT `no` AS idbarang, nama, jenis, nama_satuan, harga, status, 
-                         fn_get_current_stock(`no`) AS stock 
+        $query = "SELECT 
+                    `no` AS idbarang, 
+                    nama, 
+                    jenis, 
+                    nama_satuan, 
+                    harga AS harga_beli,
+                    (harga + (harga * COALESCE((
+                        SELECT persen FROM margin_penjualan WHERE STATUS = 1 ORDER BY idmargin_penjualan DESC LIMIT 1
+                    ), 0) / 100)) AS harga_jual,
+                    status, 
+                    fn_get_current_stock(`no`) AS stock 
                   FROM view_barang 
                   WHERE status = 'Active' 
                   ORDER BY nama ASC";
+                  
         $stmt = $this->conn->prepare($query);
         $stmt->execute();
         return $stmt->fetchAll();

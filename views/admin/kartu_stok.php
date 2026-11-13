@@ -60,18 +60,20 @@ require_once 'views/layouts/header.php';
                         <td style="padding: 10px; color: #777;">#<?= htmlspecialchars($row['no']) ?></td>
                         <td style="padding: 10px; color: #555;"><?= htmlspecialchars($row['tanggal']) ?></td>
                         <td style="padding: 10px; font-weight: bold; color: var(--black-forest);"><?= htmlspecialchars($row['nama_barang']) ?></td>
-                        <td style="padding: 10px; text-align: center;">
-                            <span style="background: <?= $row['jenis_transaksi'] === 'I' ? '#28a745' : '#dc3545' ?>; color: white; padding: 3px 10px; border-radius: 12px; font-weight: bold; font-size: 0.8rem;">
-                                <?= htmlspecialchars($row['label_transaksi']) ?>
-                            </span>
+                        
+                        <!-- Clean, subtle text label instead of loud background badges -->
+                        <td style="padding: 10px; text-align: center; font-weight: 600; color: <?= $row['jenis_transaksi'] === 'I' ? '#2e7d32' : '#c62828' ?>;">
+                            <?= htmlspecialchars($row['label_transaksi']) ?>
                         </td>
-                        <td style="padding: 10px; text-align: right; color: #28a745; font-weight: bold;">
+
+                        <!-- Soft coloring for numbers -->
+                        <td style="padding: 10px; text-align: right; color: <?= $row['masuk'] > 0 ? '#2e7d32' : '#999' ?>; font-weight: 600;">
                             <?= $row['masuk'] > 0 ? '+' . $row['masuk'] : '-' ?>
                         </td>
-                        <td style="padding: 10px; text-align: right; color: #dc3545; font-weight: bold;">
+                        <td style="padding: 10px; text-align: right; color: <?= $row['keluar'] > 0 ? '#c62828' : '#999' ?>; font-weight: 600;">
                             <?= $row['keluar'] > 0 ? '-' . $row['keluar'] : '-' ?>
                         </td>
-                        <td style="padding: 10px; text-align: right; font-weight: bold; font-size: 1.05rem; color: var(--olive-leaf);">
+                        <td style="padding: 10px; text-align: right; font-weight: bold; color: var(--black-forest);">
                             <?= htmlspecialchars($row['saldo_stok']) ?>
                         </td>
                         <td style="padding: 10px; text-align: center; color: #666; font-size: 0.9rem;">

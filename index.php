@@ -18,31 +18,45 @@ if ($action) {
             require_once 'controllers/AuthController.php';
             break;
 
-        // --- TAMBAHAN ACTION BARANG ---
         case 'create_barang':
         case 'update_barang':
         case 'delete_barang':
             Auth::checkAccess(['Admin']);
             require_once 'controllers/BarangController.php';
             break;
+            
         case 'create_user':
-case 'update_user':
-case 'delete_user':
-    Auth::checkAccess(['Admin']);
-    require_once 'controllers/UserController.php';
-    break;
+        case 'update_user':
+        case 'delete_user':
+            Auth::checkAccess(['Admin']);
+            require_once 'controllers/UserController.php';
+            break;
 
-    case 'checkout_pos':
-    Auth::checkAccess(['Kasir', 'Manager', 'Admin']);
-    require_once 'controllers/TransaksiController.php';
-    break;
+        // --- NEW KASIR POS SESSION CART ROUTES ---
+        case 'add_to_cart':
+        case 'remove_from_cart':
+        case 'checkout_pos':
+            Auth::checkAccess(['Kasir', 'Manager', 'Admin']);
+            require_once 'controllers/TransaksiController.php';
+            break;
 
-    case 'create_pengadaan':
-case 'proses_penerimaan':
-case 'proses_retur':
-    Auth::checkAccess(['Manager', 'Admin']);
-    require_once 'controllers/PengadaanController.php';
-    break;
+        // --- NEW MANAGER PENGADAAN & PENERIMAAN CART ROUTES ---
+        case 'add_po_cart':
+        case 'remove_po_cart':
+        case 'checkout_po':
+        case 'load_rcv_cart':
+        case 'update_rcv_qty':
+        case 'remove_rcv_cart':
+        case 'checkout_rcv':
+        case 'add_retur_cart':
+        case 'remove_retur_cart':
+        case 'checkout_retur':
+            
+            Auth::checkAccess(['Manager', 'Admin']);
+            require_once 'controllers/PengadaanController.php';
+            break;
+
+        
 
         default:
             die("Action not found.");
@@ -101,6 +115,12 @@ case 'manager_dashboard':
     require_once 'views/admin/kartu_stok.php';
     break;
     
+    case 'penerimaan':
+    case 'pengadaan':
+    case 'manager_dashboard':
+        Auth::checkAccess(['Manager', 'Admin']);
+        require_once 'views/manager/pengadaan.php';
+        break;
 
     
         

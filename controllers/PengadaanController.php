@@ -9,61 +9,158 @@ $pengadaanModel = new Pengadaan($conn);
 
 $action = $_GET['action'] ?? '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if ($action === 'create_pengadaan') {
-        $userId   = (int)($_SESSION['user_id'] ?? 0);
-        $vendorId = (int)($_POST['vendor_id'] ?? 0);
-        $itemsRaw = $_POST['items_json'] ?? '[]';
-        $items    = json_decode($itemsRaw, true);
+// Initialize Session Carts
+if (!isset($_SESSION['po_cart'])) $_SESSION['po_cart'] = [];
+if (!isset($_SESSION['rcv_cart'])) $_SESSION['rcv_cart'] = [];
+if (!isset($_SESSION['retur_cart'])) $_SESSION['retur_cart'] = [];
 
-        if ($userId > 0 && $vendorId > 0 && !empty($items)) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' || $action) {
+
+    // ==========================================
+    // MODULE 1: PENGADAAN (ORDER TO VENDOR)
+    // ==========================================
+    if ($action === 'add_po_cart') {
+        $idbarang = (int)$_POST['idbarang'];
+        $newVendorId = (int)$_POST['vendor_id'];
+
+        // SECURITY CHECK: If user changes vendor mid-way, clear the previous cart items!
+        if (isset($_SESSION['active_vendor_id']) && $_SESSION['active_vendor_id'] !== $newVendorId) {
+            $_SESSION['po_cart'] = [];
+        }
+
+        if ($idbarang > 0) {
+            // Add or update quantity
+            if (isset($_SESSION['po_cart'][$idbarang])) {
+                $_SESSION['po_cart'][$idbarang]['qty'] += (int)$_POST['qty'];
+            } else {
+                $_SESSION['po_cart'][$idbarang] = [
+                    'nama' => $_POST['nama_barang'],
+                    'harga' => (int)$_POST['harga'],
+                    'qty' => (int)$_POST['qty']
+                ];
+            }
+            $_SESSION['active_vendor_id'] = $newVendorId; 
+        }
+        header("Location: index.php?page=pengadaan");
+        exit;
+    }
+
+    if ($action === 'remove_po_cart') {
+        unset($_SESSION['po_cart'][(int)$_GET['id']]);
+        header("Location: index.php?page=pengadaan");
+        exit;
+    }
+
+    if ($action === 'checkout_po') {
+        $iduser = (int)$_SESSION['user_id'];
+        $idvendor = (int)$_POST['vendor_id'];
+        if (!empty($_SESSION['po_cart']) && $idvendor > 0) {
             try {
-                $pengadaanModel->createPengadaanMulti($userId, $vendorId, $items);
-                header("Location: index.php?page=pengadaan&msg=pengadaan_created");
+                $pengadaanModel->checkoutPengadaan($iduser, $idvendor, $_SESSION['po_cart']);
+                $_SESSION['po_cart'] = [];
+                unset($_SESSION['active_vendor_id']);
+                header("Location: index.php?page=pengadaan&msg=Pengadaan Order successfully created!");
             } catch (Exception $e) {
-                header("Location: index.php?page=pengadaan&err=" . urlencode($e->getMessage()));
+                header("Location: index.php?page=pengadaan&err=DB Error: " . urlencode($e->getMessage()));
             }
         } else {
-            header("Location: index.php?page=pengadaan&err=Cart+cannot+be+empty");
+            header("Location: index.php?page=pengadaan&err=Vendor and Cart cannot be empty.");
         }
         exit;
     }
 
-    if ($action === 'proses_penerimaan') {
-        $userId      = (int)($_SESSION['user_id'] ?? 0);
-        $idPengadaan = (int)($_POST['idpengadaan'] ?? 0);
-        $itemsRaw    = $_POST['items_json'] ?? '[]';
-        $items       = json_decode($itemsRaw, true);
+    // ==========================================
+    // MODULE 2: PENERIMAAN (AUTO-FILL CART)
+    // ==========================================
+    if ($action === 'load_rcv_cart') {
+        $idpengadaan = (int)$_POST['idpengadaan'];
+        $_SESSION['active_pengadaan_id'] = $idpengadaan;
+        $_SESSION['rcv_cart'] = []; // Reset cart
+        
+        $items = $pengadaanModel->getPengadaanItemsForPenerimaan($idpengadaan);
+        foreach ($items as $item) {
+            $_SESSION['rcv_cart'][$item['idbarang']] = [
+                'nama' => $item['nama_barang'],
+                'harga' => $item['harga_satuan'],
+                'qty' => $item['sisa_belum_terima'], // Auto-fill with remaining qty!
+                'max_qty' => $item['sisa_belum_terima'] // Lock the max to the remaining qty!
+            ];
+        }
+        header("Location: index.php?page=pengadaan");
+        exit;
+    }
 
-        if ($userId > 0 && $idPengadaan > 0 && !empty($items)) {
+    if ($action === 'update_rcv_qty') {
+        $idbarang = (int)$_POST['idbarang'];
+        $newQty = (int)$_POST['qty'];
+        if (isset($_SESSION['rcv_cart'][$idbarang])) {
+            $max = $_SESSION['rcv_cart'][$idbarang]['max_qty'];
+            // Validation: Cannot receive more than ordered
+            $_SESSION['rcv_cart'][$idbarang]['qty'] = ($newQty > $max) ? $max : $newQty;
+        }
+        header("Location: index.php?page=pengadaan");
+        exit;
+    }
+
+    if ($action === 'remove_rcv_cart') {
+        unset($_SESSION['rcv_cart'][(int)$_GET['id']]);
+        header("Location: index.php?page=pengadaan");
+        exit;
+    }
+
+    if ($action === 'checkout_rcv') {
+        $iduser = (int)$_SESSION['user_id'];
+        $idpengadaan = (int)$_SESSION['active_pengadaan_id'];
+        if (!empty($_SESSION['rcv_cart']) && $idpengadaan > 0) {
             try {
-                $pengadaanModel->processPenerimaanMulti($idPengadaan, $userId, $items);
-                header("Location: index.php?page=pengadaan&msg=penerimaan_processed");
+                $pengadaanModel->checkoutPenerimaan($iduser, $idpengadaan, $_SESSION['rcv_cart']);
+                $_SESSION['rcv_cart'] = [];
+                unset($_SESSION['active_pengadaan_id']);
+                header("Location: index.php?page=pengadaan&msg=Penerimaan processed! Stock updated.");
             } catch (Exception $e) {
-                header("Location: index.php?page=pengadaan&err=" . urlencode($e->getMessage()));
+                header("Location: index.php?page=pengadaan&err=DB Error: " . urlencode($e->getMessage()));
             }
-        } else {
-            header("Location: index.php?page=pengadaan&err=Invalid+reception+items");
         }
         exit;
     }
 
-    if ($action === 'proses_retur') {
-        $userId             = (int)($_SESSION['user_id'] ?? 0);
-        $idPenerimaan       = (int)($_POST['idpenerimaan'] ?? 0);
-        $idDetailPenerimaan = (int)($_POST['iddetail_penerimaan'] ?? 0);
-        $jumlahRetur        = (int)($_POST['jumlah_retur'] ?? 0);
-        $alasan             = trim($_POST['alasan'] ?? '');
+    // ==========================================
+    // MODULE 3: RETUR
+    // ==========================================
+    if ($action === 'add_retur_cart') {
+        $iddetail = (int)$_POST['iddetail_penerimaan'];
+        if ($iddetail > 0) {
+            $_SESSION['retur_cart'][$iddetail] = [
+                'idpenerimaan' => (int)$_POST['idpenerimaan'],
+                'nama' => $_POST['nama_barang'],
+                'qty' => (int)$_POST['qty'],
+                'alasan' => $_POST['alasan']
+            ];
+        }
+        header("Location: index.php?page=pengadaan");
+        exit;
+    }
 
-        if ($userId > 0 && $idPenerimaan > 0 && $idDetailPenerimaan > 0 && $jumlahRetur > 0 && !empty($alasan)) {
+    if ($action === 'remove_retur_cart') {
+        unset($_SESSION['retur_cart'][(int)$_GET['id']]);
+        header("Location: index.php?page=pengadaan");
+        exit;
+    }
+
+    if ($action === 'checkout_retur') {
+        $iduser = (int)$_SESSION['user_id'];
+        if (!empty($_SESSION['retur_cart'])) {
             try {
-                $pengadaanModel->processRetur($idPenerimaan, $idDetailPenerimaan, $userId, $jumlahRetur, $alasan);
-                header("Location: index.php?page=pengadaan&msg=retur_processed");
-            } catch (PDOException $e) {
-                header("Location: index.php?page=pengadaan&err=" . urlencode($e->getMessage()));
+                // All items in cart must belong to the same penerimaan for simplicity
+                $firstItem = reset($_SESSION['retur_cart']);
+                $idpenerimaan = $firstItem['idpenerimaan'];
+                
+                $pengadaanModel->checkoutRetur($iduser, $idpenerimaan, $_SESSION['retur_cart']);
+                $_SESSION['retur_cart'] = [];
+                header("Location: index.php?page=pengadaan&msg=Retur processed! Broken stock deducted.");
+            } catch (Exception $e) {
+                header("Location: index.php?page=pengadaan&err=DB Error: " . urlencode($e->getMessage()));
             }
-        } else {
-            header("Location: index.php?page=pengadaan&err=Invalid+retur+input");
         }
         exit;
     }

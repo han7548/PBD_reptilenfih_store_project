@@ -1,30 +1,82 @@
 <?php
-
-
+// controllers/TransaksiController.php
 require_once 'classes/Penjualan.php';
-
 $db = new Database();
 $conn = $db->getConnection();
 $penjualanModel = new Penjualan($conn);
 
 $action = $_GET['action'] ?? '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'checkout_pos') {
-    $iduser   = (int)($_SESSION['user_id'] ?? 0);
-    $idmargin = (int)($_POST['idmargin'] ?? 0);
-    $itemsRaw = $_POST['items_json'] ?? '[]';
-    $items    = json_decode($itemsRaw, true);
+// Initialize Cart
+if (!isset($_SESSION['pos_cart'])) {
+    $_SESSION['pos_cart'] = [];
+}
 
-    if ($iduser > 0 && $idmargin > 0 && !empty($items) && is_array($items)) {
-        try {
-            $penjualanModel->checkoutMulti($iduser, $idmargin, $items);
-            header("Location: index.php?page=kasir_dashboard&msg=success");
-        } catch (PDOException $e) {
-            // Catches stock validation signals thrown by sp_checkout_penjualan_multi
-            header("Location: index.php?page=kasir_dashboard&err=" . urlencode($e->getMessage()));
-        }
+// 1. ADD ITEM TO SESSION CART
+if ($action === 'add_to_cart') {
+    $idbarang = (int)$_POST['idbarang'];
+    $nama = $_POST['nama_barang'];
+    $harga = (int)$_POST['harga'];
+    $qty = (int)$_POST['qty'];
+    $maxStock = (int)$_POST['max_stock'];
+
+    if (isset($_SESSION['pos_cart'][$idbarang])) {
+        $newQty = $_SESSION['pos_cart'][$idbarang]['qty'] + $qty;
+        $_SESSION['pos_cart'][$idbarang]['qty'] = min($newQty, $maxStock); // Prevent exceeding stock
     } else {
-        header("Location: index.php?page=kasir_dashboard&err=Cart+cannot+be+empty");
+        $_SESSION['pos_cart'][$idbarang] = [
+            'nama' => $nama,
+            'harga' => $harga,
+            'qty' => $qty,
+            'maxStock' => $maxStock
+        ];
+    }
+    header("Location: index.php?page=kasir_dashboard");
+    exit;
+}
+
+// 2. REMOVE ITEM FROM SESSION CART
+if ($action === 'remove_from_cart') {
+    $id = (int)$_GET['id'];
+    unset($_SESSION['pos_cart'][$id]);
+    header("Location: index.php?page=kasir_dashboard");
+    exit;
+}
+
+// 3. FINAL CHECKOUT TO DATABASE (Uses the INOUT Stored Procedure!)
+if ($action === 'checkout_pos') {
+    $iduser = (int)$_SESSION['user_id'];
+    $idmargin = (int)$_POST['idmargin'];
+    $cart = $_SESSION['pos_cart'];
+
+    if (empty($cart)) {
+        header("Location: index.php?page=kasir_dashboard&err=Cart is empty!");
+        exit;
+    }
+
+    try {
+        // We use PDO to track the INOUT variable for the header ID
+        $conn->query("SET @idpenjualan = 0"); 
+        
+        $stmt = $conn->prepare("CALL sp_simpan_penjualan(:iduser, :idmargin, :idbarang, :qty, :harga, @idpenjualan)");
+
+        // Loop the session cart!
+        foreach ($cart as $idbarang => $item) {
+            $stmt->bindParam(':iduser', $iduser, PDO::PARAM_INT);
+            $stmt->bindParam(':idmargin', $idmargin, PDO::PARAM_INT);
+            $stmt->bindParam(':idbarang', $idbarang, PDO::PARAM_INT);
+            $stmt->bindValue(':qty', $item['qty'], PDO::PARAM_INT);
+            $stmt->bindValue(':harga', $item['harga'], PDO::PARAM_INT);
+            $stmt->execute();
+            $stmt->closeCursor(); // Must close cursor before next loop in PDO
+        }
+
+        // Clear cart on success
+        $_SESSION['pos_cart'] = [];
+        header("Location: index.php?page=kasir_dashboard&msg=Transaction Successful!");
+
+    } catch (PDOException $e) {
+        header("Location: index.php?page=kasir_dashboard&err=DB Error: " . urlencode($e->getMessage()));
     }
     exit;
 }
