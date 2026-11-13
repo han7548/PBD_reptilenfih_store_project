@@ -933,4 +933,172 @@ DELIMITER ;
 
 
 
+-----------REVISI SPS----------------------
 
+
+DELIMITER $$
+
+
+DROP PROCEDURE IF EXISTS sp_simpan_penjualan$$
+CREATE PROCEDURE sp_simpan_penjualan (
+    IN p_iduser INT,
+    IN p_idmargin INT,
+    IN p_idbarang INT,
+    IN p_jumlah INT,
+    IN p_harga INT,
+    INOUT p_idpenjualan INT 
+)
+BEGIN
+    DECLARE v_subtotal INT;
+    SET v_subtotal = p_jumlah * p_harga;
+
+    -- create header
+    IF p_idpenjualan = 0 THEN
+        INSERT INTO penjualan (iduser, idmargin_penjualan, subtotal_nilai, ppn, total_nilai)
+        VALUES (p_iduser, p_idmargin, 0, 0, 0);
+        
+        SET p_idpenjualan = LAST_INSERT_ID();
+    END IF;
+
+    -- Insert the detail item 
+    INSERT INTO detail_penjualan (penjualan_idpenjualan, idbarang, harga_satuan, jumlah, subtotal)
+    VALUES (p_idpenjualan, p_idbarang, p_harga, p_jumlah, v_subtotal);
+
+    -- Recalculate and update the Header totalsssss
+    UPDATE penjualan 
+    SET subtotal_nilai = (SELECT SUM(subtotal) FROM detail_penjualan WHERE penjualan_idpenjualan = p_idpenjualan),
+        ppn = fn_calculate_ppn((SELECT SUM(subtotal) FROM detail_penjualan WHERE penjualan_idpenjualan = p_idpenjualan)),
+        total_nilai = subtotal_nilai + ppn
+    WHERE idpenjualan = p_idpenjualan;
+END$$
+
+
+
+DROP PROCEDURE IF EXISTS sp_simpan_penerimaan$$
+CREATE PROCEDURE sp_simpan_penerimaan (
+    IN p_idpengadaan INT,
+    IN p_iduser INT,
+    IN p_idbarang INT,
+    IN p_jumlah_terima INT,
+    IN p_harga INT,
+    INOUT p_idpenerimaan INT
+)
+BEGIN
+    DECLARE v_total_ordered INT DEFAULT 0;
+    DECLARE v_total_received INT DEFAULT 0;
+
+    
+    IF p_idpenerimaan = 0 THEN
+        INSERT INTO penerimaan (idpengadaan, iduser, status) VALUES (p_idpengadaan, p_iduser, 'F');
+        SET p_idpenerimaan = LAST_INSERT_ID();
+    END IF;
+
+    
+    INSERT INTO detail_penerimaan (idpenerimaan, barang_idbarang, jumlah_terima, harga_satuan_terima, sub_total_terima)
+    VALUES (p_idpenerimaan, p_idbarang, p_jumlah_terima, p_harga, p_jumlah_terima * p_harga);
+
+    -- STATUS LOGIC
+    SELECT COALESCE(SUM(jumlah), 0) INTO v_total_ordered 
+    FROM detail_pengadaan WHERE idpengadaan = p_idpengadaan;
+    
+    SELECT COALESCE(SUM(dp.jumlah_terima), 0) INTO v_total_received
+    FROM detail_penerimaan dp
+    JOIN penerimaan p ON dp.idpenerimaan = p.idpenerimaan
+    WHERE p.idpengadaan = p_idpengadaan;
+
+    IF v_total_received >= v_total_ordered THEN
+        UPDATE pengadaan SET status = 'F' WHERE idpengadaan = p_idpengadaan; 
+    ELSE
+        UPDATE pengadaan SET status = 'S' WHERE idpengadaan = p_idpengadaan; 
+    END IF;
+END$$
+
+DROP PROCEDURE IF EXISTS sp_simpan_pengadaan$$
+CREATE PROCEDURE sp_simpan_pengadaan (
+    IN p_iduser INT,
+    IN p_idvendor INT,
+    IN p_idbarang INT,
+    IN p_jumlah INT,
+    IN p_harga INT,
+    INOUT p_idpengadaan INT
+)
+BEGIN
+    DECLARE v_subtotal INT;
+    SET v_subtotal = p_jumlah * p_harga;
+
+    
+    IF p_idpengadaan = 0 THEN
+        INSERT INTO pengadaan (user_iduser, vendor_idvendor, status, subtotal_nilai, ppn, total_nilai)
+        VALUES (p_iduser, p_idvendor, 'P', 0, 0, 0);
+        
+        SET p_idpengadaan = LAST_INSERT_ID();
+    END IF;
+
+    
+    INSERT INTO detail_pengadaan (idpengadaan, idbarang, harga_satuan, jumlah, sub_total)
+    VALUES (p_idpengadaan, p_idbarang, p_harga, p_jumlah, v_subtotal);
+
+    
+    UPDATE pengadaan 
+    SET subtotal_nilai = (SELECT COALESCE(SUM(sub_total), 0) FROM detail_pengadaan WHERE idpengadaan = p_idpengadaan),
+        ppn = fn_calculate_ppn((SELECT COALESCE(SUM(sub_total), 0) FROM detail_pengadaan WHERE idpengadaan = p_idpengadaan)),
+        total_nilai = subtotal_nilai + ppn
+    WHERE idpengadaan = p_idpengadaan;
+END$$
+
+DROP PROCEDURE IF EXISTS sp_simpan_retur$$
+CREATE PROCEDURE sp_simpan_retur (
+    IN p_idpenerimaan BIGINT,
+    IN p_iduser INT,
+    IN p_iddetail_penerimaan BIGINT,
+    IN p_jumlah INT,
+    IN p_alasan VARCHAR(200),
+    INOUT p_idretur BIGINT
+)
+BEGIN
+    
+    IF p_idretur = 0 THEN
+        INSERT INTO retur (idpenerimaan, iduser)
+        VALUES (p_idpenerimaan, p_iduser);
+        
+        SET p_idretur = LAST_INSERT_ID();
+    END IF;
+
+    INSERT INTO detail_retur (idretur, iddetail_penerimaan, jumlah, alasan)
+    VALUES (p_idretur, p_iddetail_penerimaan, p_jumlah, p_alasan);
+
+END$$
+
+
+DELIMITER ;
+
+
+
+ALTER TABLE pengadaan DROP CONSTRAINT chk_pengadaan_status;
+
+
+ALTER TABLE pengadaan ADD CONSTRAINT chk_pengadaan_status 
+CHECK (status IN ('P', 'C', 'F', 'S'));
+
+
+CREATE OR REPLACE VIEW view_pengadaan AS
+SELECT 
+    p.idpengadaan AS 'no',
+    p.timestamp AS tanggal,
+    v.nama_vendor,
+    u.username AS dibuat_oleh,
+    p.subtotal_nilai,
+    p.ppn,
+    p.total_nilai,
+    CASE 
+        WHEN p.status = 'P' THEN 'Pending'
+        WHEN p.status = 'C' THEN 'Canceled'
+        WHEN p.status = 'F' THEN 'Finished'
+        WHEN p.status = 'S' THEN 'Sebagian'
+    END AS status
+FROM pengadaan p
+JOIN vendor v ON p.vendor_idvendor = v.idvendor
+JOIN USER u ON p.user_iduser = u.iduser;
+
+
+ALTER TABLE pengadaan MODIFY COLUMN status ENUM('P', 'C', 'F', 'S') DEFAULT 'P';

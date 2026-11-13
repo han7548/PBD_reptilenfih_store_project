@@ -15,7 +15,7 @@ require_once 'views/layouts/header.php';
 <h2 style="margin-top:0; color: var(--black-forest);">Point of Sale (POS)</h2>
 <p style="color: #666; margin-bottom: 20px;">Build your order in the cart. Stock is deducted only upon final checkout.</p>
 
-<!-- NEW: Active Margin Indicator for Lecturer Visibility -->
+
 <div style="background: var(--cornsilk); border-left: 4px solid var(--olive-leaf); padding: 12px 15px; margin-bottom: 25px; border-radius: 4px;">
     <strong style="color: var(--black-forest);">Active Profit Margin: <?= htmlspecialchars($activeMargin['persen'] ?? 0) ?>%</strong>
     <span style="color: #555; margin-left: 10px; font-size: 0.9rem;">(All item prices below have been automatically marked up by this percentage)</span>

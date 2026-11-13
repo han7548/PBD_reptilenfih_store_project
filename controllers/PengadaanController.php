@@ -16,9 +16,7 @@ if (!isset($_SESSION['retur_cart'])) $_SESSION['retur_cart'] = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' || $action) {
 
-    // ==========================================
-    // MODULE 1: PENGADAAN (ORDER TO VENDOR)
-    // ==========================================
+   
     if ($action === 'add_po_cart') {
         $idbarang = (int)$_POST['idbarang'];
         $newVendorId = (int)$_POST['vendor_id'];
@@ -69,9 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || $action) {
         exit;
     }
 
-    // ==========================================
-    // MODULE 2: PENERIMAAN (AUTO-FILL CART)
-    // ==========================================
+   
     if ($action === 'load_rcv_cart') {
         $idpengadaan = (int)$_POST['idpengadaan'];
         $_SESSION['active_pengadaan_id'] = $idpengadaan;
