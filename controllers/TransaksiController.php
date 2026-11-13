@@ -1,5 +1,5 @@
 <?php
-// controllers/TransaksiController.php
+
 require_once 'classes/Penjualan.php';
 $db = new Database();
 $conn = $db->getConnection();

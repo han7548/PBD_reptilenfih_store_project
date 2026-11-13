@@ -5,6 +5,7 @@ session_start();
 
 require_once 'config/Database.php';
 require_once 'classes/Auth.php';
+require_once 'controllers/Barangcontroller.php';
 
 // Route Definitions
 $action = $_GET['action'] ?? '';

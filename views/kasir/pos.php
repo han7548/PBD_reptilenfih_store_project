@@ -13,7 +13,7 @@ require_once 'views/layouts/header.php';
 ?>
 
 <h2 style="margin-top:0; color: var(--black-forest);">Point of Sale (POS)</h2>
-<p style="color: #666; margin-bottom: 20px;">Build your order in the cart. Stock is deducted only upon final checkout.</p>
+<p style="color: #666; margin-bottom: 20px;">Ya ini.</p>
 
 
 <div style="background: var(--cornsilk); border-left: 4px solid var(--olive-leaf); padding: 12px 15px; margin-bottom: 25px; border-radius: 4px;">
