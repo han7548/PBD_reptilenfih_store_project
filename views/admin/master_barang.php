@@ -3,158 +3,174 @@
 
 require_once 'classes/Barang.php';
 
+
 $db = new Database();
 $conn = $db->getConnection();
-$barangModel = new Barang($conn);
 
-$barangs = $barangModel->getAll();
-$satuans = $barangModel->getSatuans();
+$stmt = $conn->prepare("SELECT * FROM view_barang ORDER BY `no` ASC");
+$stmt->execute();
+$allBarangs = $stmt->fetchAll();
 
-// Pre-fill edit mode if requested
+$activeBarangs = [];
+$inactiveBarangs = [];
+foreach ($allBarangs as $b) {
+    if (strtoupper((string)$b['status']) === 'ACTIVE') {
+        $activeBarangs[] = $b;
+    } else {
+        $inactiveBarangs[] = $b;
+    }
+}
+
 $editItem = null;
 if (isset($_GET['edit_id'])) {
-    $editItem = $barangModel->getById((int)$_GET['edit_id']);
+    $editId = (int)$_GET['edit_id'];
+    foreach ($allBarangs as $b) {
+        if ((int)$b['no'] === $editId) {
+            $editItem = $b;
+            break;
+        }
+    }
 }
+
+$satuans = $conn->query("SELECT idsatuan, nama_satuan FROM satuan ORDER BY nama_satuan ASC")->fetchAll();
 
 require_once 'views/layouts/header.php';
 ?>
 
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-    <h2 style="color: var(--black-forest); margin: 0;">Master Data Barang</h2>
-    <a href="index.php?page=master_barang#barang-form" class="btn-primary" style="text-decoration: none; font-size: 0.9rem;">+ Add New Item</a>
-</div>
+<h2 style="margin-top:0; color: var(--black-forest);">Master Barang</h2>
 
 <?php if (isset($_GET['msg'])): ?>
-    <div style="background: #d4edda; color: #155724; padding: 10px; border-radius: 4px; margin-bottom: 15px;">
-        Action completed successfully!
-    </div>
-<?php elseif (isset($_GET['err']) && $_GET['err'] === 'fk_constraint'): ?>
-    <div style="background: #f8d7da; color: #721c24; padding: 10px; border-radius: 4px; margin-bottom: 15px;">
-        Cannot delete item: It is already referenced in transaction logs (Pengadaan / Penjualan).
-    </div>
+    <div class="alert alert-success"><?= htmlspecialchars($_GET['msg']) ?></div>
+<?php elseif (isset($_GET['err'])): ?>
+    <div class="alert alert-danger"><?= htmlspecialchars($_GET['err']) ?></div>
 <?php endif; ?>
 
-<!-- Data Table -->
-<div style="overflow-x: auto; background: var(--white); border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 30px;">
-    <table style="width: 100%; border-collapse: collapse;">
-        <thead>
-            <tr style="background-color: var(--olive-leaf); color: var(--white);">
-                <th style="padding: 12px; text-align: left;">ID</th>
-                <th style="padding: 12px; text-align: left;">Jenis</th>
-                <th style="padding: 12px; text-align: left;">Nama Barang</th>
-                <th style="padding: 12px; text-align: left;">Satuan</th>
-                <th style="padding: 12px; text-align: right;">Harga</th>
-                <th style="padding: 12px; text-align: center;">Stok</th>
-                <th style="padding: 12px; text-align: center;">Status</th>
-                <th style="padding: 12px; text-align: center;">Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php if (!empty($barangs)): ?>
-                <?php foreach ($barangs as $row): ?>
-                    <tr style="border-bottom: 1px solid #eee;">
-                        <td style="padding: 10px;"><?= htmlspecialchars($row['no']) ?></td>
-                        
-                        <td style="padding: 10px;">
-                            <?php 
-                                $jenisLabel = ['H' => 'Hewan', 'F' => 'Makanan', 'P' => 'Perlengkapan'];
-                                echo htmlspecialchars($jenisLabel[$row['jenis']] ?? $row['jenis']);
-                            ?>
-                        </td>
-                        <td style="padding: 10px; font-weight: bold; color: var(--black-forest);"><?= htmlspecialchars($row['nama']) ?></td>
-                        <td style="padding: 10px;"><?= htmlspecialchars($row['nama_satuan']) ?></td>
-                        <td style="padding: 10px; text-align: right;">Rp <?= number_format($row['harga'], 0, ',', '.') ?></td>
-                        
-                        <!-- NEW STOK COLUMN -->
-                        <td style="padding: 10px; text-align: center;">
-                            <span style="background: <?= $row['stok'] > 0 ? '#28a745' : '#dc3545' ?>; color: white; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 0.85rem;">
-                                <?= htmlspecialchars($row['stok']) ?>
-                            </span>
-                        </td>
-                        
-                        <td style="padding: 10px; text-align: center;">
-                            <span style="background: <?= $row['status'] === 'Active' ? '#17a2b8' : '#6c757d' ?>; color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.8rem;">
-                                <?= htmlspecialchars($row['status']) ?>
-                            </span>
-                        </td>
-                        
-                        <td style="padding: 10px; text-align: center;">
-                            <a href="index.php?page=master_barang&edit_id=<?= $row['no'] ?>#barang-form" style="color: var(--olive-leaf); margin-right: 10px; font-weight: bold; text-decoration: none;">Edit</a>
-                            <a href="index.php?action=delete_barang&id=<?= $row['no'] ?>" onclick="return confirm('Delete this item?');" style="color: #d9534f; font-weight: bold; text-decoration: none;">Delete</a>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-            <?php else: ?>
-                <tr>
-                    <td colspan="8" style="padding: 15px; text-align: center;">No barang records found.</td>
-                </tr>
-            <?php endif; ?>
-        </tbody>
-    </table>
-</div>
-
-<!-- Add / Edit Form Card -->
-<div id="barang-form" style="background: var(--white); padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 600px;">
-    <h3 style="color: var(--black-forest); margin-top: 0; border-bottom: 2px solid var(--cornsilk); padding-bottom: 10px;">
-        <?= $editItem ? 'Edit Barang (ID: ' . $editItem['idbarrang'] . ')' : 'Add New Barang' ?>
-    </h3>
-
+<div class="card" id="barang-form">
+    <div class="card-header"><?= $editItem ? 'Edit Barang #' . (int)$editItem['no'] : 'Add New Barang' ?></div>
     <form action="index.php?action=<?= $editItem ? 'update_barang' : 'create_barang' ?>" method="POST">
         <?php if ($editItem): ?>
-            <input type="hidden" name="idbarrang" value="<?= $editItem['idbarrang'] ?>">
+            <input type="hidden" name="idbarang" value="<?= (int)$editItem['no'] ?>">
         <?php endif; ?>
 
-        <div style="margin-bottom: 15px;">
-            <label style="display: block; font-weight: bold; margin-bottom: 5px;">Nama Barang</label>
-            <input type="text" name="nama" value="<?= htmlspecialchars($editItem['nama'] ?? '') ?>" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-        </div>
-
-        <div style="display: flex; gap: 15px; margin-bottom: 15px;">
-            <div style="flex: 1;">
-                <label style="display: block; font-weight: bold; margin-bottom: 5px;">Jenis</label>
-                <select name="jenis" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-                    <option value="H" <?= (isset($editItem['jenis']) && $editItem['jenis'] === 'H') ? 'selected' : '' ?>>Hewan (H)</option>
-                    <option value="F" <?= (isset($editItem['jenis']) && $editItem['jenis'] === 'F') ? 'selected' : '' ?>>Makanan (F)</option>
-                    <option value="P" <?= (isset($editItem['jenis']) && $editItem['jenis'] === 'P') ? 'selected' : '' ?>>Perlengkapan (P)</option>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Jenis</label>
+                <select name="jenis" required>
+                    <?php $curJenis = $editItem['jenis'] ?? 'P'; ?>
+                    <option value="H" <?= $curJenis === 'H' ? 'selected' : '' ?>>Hewan (H)</option>
+                    <option value="F" <?= $curJenis === 'F' ? 'selected' : '' ?>>Makanan (F)</option>
+                    <option value="P" <?= $curJenis === 'P' ? 'selected' : '' ?>>Perlengkapan (P)</option>
                 </select>
             </div>
-            
-            <div style="flex: 1;">
-                <label style="display: block; font-weight: bold; margin-bottom: 5px;">Satuan</label>
-                <select name="idsatuan" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-                    <?php foreach ($satuans as $satuan): ?>
-                        <option value="<?= $satuan['idsatuan'] ?>" <?= (isset($editItem['idsatuan']) && $editItem['idsatuan'] == $satuan['idsatuan']) ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($satuan['nama_satuan']) ?>
+            <div class="form-group">
+                <label>Nama Barang</label>
+                <input type="text" name="nama" value="<?= htmlspecialchars($editItem['nama'] ?? '') ?>" required>
+            </div>
+            <div class="form-group">
+                <label>Satuan</label>
+                <select name="idsatuan" required>
+                    <?php foreach ($satuans as $s): ?>
+                        <option value="<?= (int)$s['idsatuan'] ?>" <?= (isset($editItem['nama_satuan']) && $editItem['nama_satuan'] === $s['nama_satuan']) ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($s['nama_satuan']) ?>
                         </option>
                     <?php endforeach; ?>
                 </select>
             </div>
-        </div>
-
-        <div style="display: flex; gap: 15px; margin-bottom: 20px;">
-            <div style="flex: 1;">
-                <label style="display: block; font-weight: bold; margin-bottom: 5px;">Harga (Rp)</label>
-                <input type="number" name="harga" value="<?= htmlspecialchars($editItem['harga'] ?? 0) ?>" required min="0" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-            </div>
-
-            <div style="flex: 1;">
-                <label style="display: block; font-weight: bold; margin-bottom: 5px;">Status</label>
-                <select name="status" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-                    <option value="1" <?= (!isset($editItem) || $editItem['STATUS'] == 1) ? 'selected' : '' ?>>Active (1)</option>
-                    <option value="0" <?= (isset($editItem) && $editItem['STATUS'] == 0) ? 'selected' : '' ?>>Inactive (0)</option>
-                </select>
+            <div class="form-group">
+                <label>Harga Dasar (Rp)</label>
+                <input type="number" name="harga" min="0" value="<?= htmlspecialchars($editItem['harga'] ?? '') ?>" required>
             </div>
         </div>
 
-        <div>
-            <button type="submit" class="btn-primary" style="padding: 10px 20px; font-weight: bold;">
-                <?= $editItem ? 'Update Barang' : 'Save Barang' ?>
-            </button>
-            <?php if ($editItem): ?>
-                <a href="index.php?page=master_barang" style="margin-left: 10px; color: #666; text-decoration: none;">Cancel</a>
-            <?php endif; ?>
-        </div>
+        <button type="submit" class="btn btn-primary"><?= $editItem ? 'Update Barang' : 'Save Barang' ?></button>
+        <?php if ($editItem): ?>
+            <a href="index.php?page=master_barang" class="btn btn-warning">Cancel Edit</a>
+        <?php endif; ?>
     </form>
 </div>
 
+<!-- Table 1: Active Barang -->
+<div class="card">
+    <div class="card-header">Active Barang (<?= count($activeBarangs) ?>)</div>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Jenis</th>
+                    <th>Nama Barang</th>
+                    <th>Satuan</th>
+                    <th style="text-align:right;">Harga</th>
+                    <th style="text-align:center;">Stok</th>
+                    <th style="text-align:center;">Status</th>
+                    <th style="text-align:center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (empty($activeBarangs)): ?>
+                    <tr><td colspan="8" style="text-align:center;">No active items.</td></tr>
+                <?php else: ?>
+                    <?php foreach ($activeBarangs as $row): ?>
+                        <tr>
+                            <td>#<?= htmlspecialchars($row['no']) ?></td>
+                            <td><?= htmlspecialchars($row['jenis']) ?></td>
+                            <td><strong><?= htmlspecialchars($row['nama']) ?></strong></td>
+                            <td><?= htmlspecialchars($row['nama_satuan']) ?></td>
+                            <td style="text-align:right;">Rp <?= number_format((int)$row['harga'], 0, ',', '.') ?></td>
+                            <td style="text-align:center;"><strong><?= htmlspecialchars($row['stok']) ?></strong></td>
+                            <td style="text-align:center;"><span class="status-text status-active">Active</span></td>
+                            <td style="text-align:center; white-space:nowrap;">
+                                <a href="index.php?page=master_barang&edit_id=<?= (int)$row['no'] ?>#barang-form" class="btn btn-warning btn-sm">Edit</a>
+                                <a href="index.php?action=toggle_barang_status&id=<?= (int)$row['no'] ?>&status=0" class="btn btn-danger btn-sm">Deactivate</a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Table 2: Inactive Barang (Same Tab) -->
+<div class="card">
+    <div class="card-header">Inactive Barang (<?= count($inactiveBarangs) ?>)</div>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Jenis</th>
+                    <th>Nama Barang</th>
+                    <th>Satuan</th>
+                    <th style="text-align:right;">Harga</th>
+                    <th style="text-align:center;">Stok</th>
+                    <th style="text-align:center;">Status</th>
+                    <th style="text-align:center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (empty($inactiveBarangs)): ?>
+                    <tr><td colspan="8" style="text-align:center;">No inactive items.</td></tr>
+                <?php else: ?>
+                    <?php foreach ($inactiveBarangs as $row): ?>
+                        <tr>
+                            <td>#<?= htmlspecialchars($row['no']) ?></td>
+                            <td><?= htmlspecialchars($row['jenis']) ?></td>
+                            <td><?= htmlspecialchars($row['nama']) ?></td>
+                            <td><?= htmlspecialchars($row['nama_satuan']) ?></td>
+                            <td style="text-align:right;">Rp <?= number_format((int)$row['harga'], 0, ',', '.') ?></td>
+                            <td style="text-align:center;"><?= htmlspecialchars($row['stok']) ?></td>
+                            <td style="text-align:center;"><span class="status-text status-inactive">Inactive</span></td>
+                            <td style="text-align:center; white-space:nowrap;">
+                                <a href="index.php?action=toggle_barang_status&id=<?= (int)$row['no'] ?>&status=1" class="btn btn-success btn-sm">Activate</a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
 <?php require_once 'views/layouts/footer.php'; ?>
+

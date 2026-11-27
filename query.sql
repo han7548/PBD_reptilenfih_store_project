@@ -335,6 +335,7 @@ FROM barang b
 JOIN satuan s ON b.idsatuan = s.idsatuan;
 
 
+
 CREATE OR REPLACE VIEW view_margin AS
 SELECT m.idmargin_penjualan AS 'no', m.persen, u.username AS created_by, m.created_at,
 CASE 

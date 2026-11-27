@@ -256,5 +256,173 @@ function autoFillRetur() {
     }
 }
 </script>
+<?php
+$allPengadaan = $conn->query("SELECT * FROM view_pengadaan ORDER BY `no` DESC")->fetchAll();
+$poDetails = $conn->query("SELECT no_pengadaan AS idpengadaan, nama_barang, jumlah_order AS jumlah, harga_satuan FROM view_detail_pengadaan")->fetchAll();
+$itemsByPo = [];
+foreach ($poDetails as $d) {
+    $itemsByPo[(int)$d['idpengadaan']][] = $d;
+}
 
+$allPenerimaan = $conn->query("SELECT * FROM view_penerimaan_riwayat")->fetchAll();
+$rcvDetails = $conn->query("SELECT no_penerimaan AS idpenerimaan, nama_barang, jumlah_terima, harga_satuan_terima FROM view_detail_penerimaan")->fetchAll();
+$itemsByRcv = [];
+foreach ($rcvDetails as $d) {
+    $itemsByRcv[(int)$d['idpenerimaan']][] = $d;
+}
+
+$allRetur = $conn->query("SELECT * FROM view_retur_riwayat")->fetchAll();
+$returDetails = $conn->query("SELECT no_retur AS idretur, nama_barang, jumlah, alasan FROM view_detail_retur")->fetchAll();
+$itemsByRetur = [];
+foreach ($returDetails as $d) {
+    $itemsByRetur[(int)$d['idretur']][] = $d;
+}
+?>
+
+<div class="card">
+    <div class="card-header">All Pengadaan &amp; Status (<?= count($allPengadaan) ?>)</div>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>No. PO</th>
+                    <th>Tanggal</th>
+                    <th>Vendor</th>
+                    <th>Items Ordered</th>
+                    <th>Dibuat Oleh</th>
+                    <th style="text-align:right;">Total Nilai</th>
+                    <th style="text-align:center;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (empty($allPengadaan)): ?>
+                    <tr><td colspan="7" style="text-align:center;">No pengadaan records.</td></tr>
+                <?php else: ?>
+                    <?php foreach ($allPengadaan as $po):
+                        $poId = (int)$po['no'];
+                        $poItems = $itemsByPo[$poId] ?? [];
+                        $st = $po['status'];
+                        $cls = 'status-pending';
+                        if ($st === 'Finished') $cls = 'status-finished';
+                        elseif ($st === 'Sebagian') $cls = 'status-partial';
+                        elseif ($st === 'Canceled') $cls = 'status-inactive';
+                    ?>
+                        <tr>
+                            <td><strong>#<?= $poId ?></strong></td>
+                            <td><?= htmlspecialchars($po['tanggal']) ?></td>
+                            <td><?= htmlspecialchars($po['nama_vendor']) ?></td>
+                            <td>
+                                <ul style="margin:0; padding-left:16px; font-size:0.86rem;">
+                                    <?php foreach ($poItems as $it): ?>
+                                        <li>
+                                            <strong><?= htmlspecialchars($it['nama_barang']) ?></strong>
+                                            &times; <?= (int)$it['jumlah'] ?>
+                                            (@ Rp <?= number_format((int)$it['harga_satuan'], 0, ',', '.') ?>)
+                                        </li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            </td>
+                            <td><?= htmlspecialchars($po['dibuat_oleh']) ?></td>
+                            <td style="text-align:right;">Rp <?= number_format((int)$po['total_nilai'], 0, ',', '.') ?></td>
+                            <td style="text-align:center;"><span class="status-text <?= $cls ?>"><?= htmlspecialchars($st) ?></span></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="grid-2">
+    <div class="card">
+        <div class="card-header">All Penerimaan (<?= count($allPenerimaan) ?>)</div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>No. Terima</th>
+                        <th>Ref PO</th>
+                        <th>Tanggal</th>
+                        <th>Items Received</th>
+                        <th style="text-align:center;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($allPenerimaan)): ?>
+                        <tr><td colspan="5" style="text-align:center;">No penerimaan records.</td></tr>
+                    <?php else: ?>
+                        <?php foreach ($allPenerimaan as $rcv):
+                            $rcvId = (int)$rcv['no_penerimaan'];
+                            $rcvItems = $itemsByRcv[$rcvId] ?? [];
+                        ?>
+                            <tr>
+                                <td><strong>#<?= $rcvId ?></strong></td>
+                                <td>#<?= (int)$rcv['no_pengadaan'] ?></td>
+                                <td><?= htmlspecialchars($rcv['tanggal']) ?></td>
+                                <td>
+                                    <ul style="margin:0; padding-left:16px; font-size:0.85rem;">
+                                        <?php foreach ($rcvItems as $it): ?>
+                                            <li><strong><?= htmlspecialchars($it['nama_barang']) ?></strong> &times; <?= (int)$it['jumlah_terima'] ?></li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                </td>
+                                <td style="text-align:center;">
+                                    <span class="status-text <?= $rcv['status_kode'] === 'S' ? 'status-partial' : 'status-finished' ?>">
+                                        <?= $rcv['status_kode'] === 'S' ? 'Sebagian' : 'Finished' ?>
+                                    </span>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">All Retur (<?= count($allRetur) ?>)</div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>No. Retur</th>
+                        <th>Ref Terima</th>
+                        <th>Tanggal</th>
+                        <th>Returned Items &amp; Reason</th>
+                        <th style="text-align:center;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($allRetur)): ?>
+                        <tr><td colspan="5" style="text-align:center;">No retur records.</td></tr>
+                    <?php else: ?>
+                        <?php foreach ($allRetur as $rt):
+                            $rtId = (int)$rt['no_retur'];
+                            $rtItems = $itemsByRetur[$rtId] ?? [];
+                        ?>
+                            <tr>
+                                <td><strong>#<?= $rtId ?></strong></td>
+                                <td>#<?= (int)$rt['no_penerimaan'] ?></td>
+                                <td><?= htmlspecialchars($rt['tanggal']) ?></td>
+                                <td>
+                                    <ul style="margin:0; padding-left:16px; font-size:0.85rem;">
+                                        <?php foreach ($rtItems as $it): ?>
+                                            <li>
+                                                <strong><?= htmlspecialchars($it['nama_barang']) ?></strong> &times; <?= (int)$it['jumlah'] ?>
+                                                <?php if (!empty($it['alasan'])): ?>
+                                                    (<?= htmlspecialchars($it['alasan']) ?>)
+                                                <?php endif; ?>
+                                            </li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                </td>
+                                <td style="text-align:center;"><span class="status-text status-finished">Processed</span></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 <?php require_once 'views/layouts/footer.php'; ?>
