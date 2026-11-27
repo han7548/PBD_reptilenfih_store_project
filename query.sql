@@ -1103,3 +1103,192 @@ JOIN USER u ON p.user_iduser = u.iduser;
 
 
 ALTER TABLE pengadaan MODIFY COLUMN status ENUM('P', 'C', 'F', 'S') DEFAULT 'P';
+
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS sp_set_active_margin$$
+CREATE PROCEDURE sp_set_active_margin (
+    IN p_idmargin INT
+)
+BEGIN
+    UPDATE margin_penjualan SET STATUS = 0;
+    UPDATE margin_penjualan SET STATUS = 1 WHERE idmargin_penjualan = p_idmargin;
+END$$
+
+DELIMITER ;
+
+
+
+------- ni sampah biarin wkwkwk   
+UPDATE margin_penjualan SET STATUS = 0;
+UPDATE margin_penjualan
+SET STATUS = 1
+ORDER BY idmargin_penjualan DESC
+LIMIT 1;
+------------------------------------
+
+ALTER TABLE pengadaan
+    MODIFY COLUMN status CHAR(1) NOT NULL DEFAULT 'P';
+
+ALTER TABLE pengadaan
+    DROP CHECK chk_pengadaan_status;
+
+ALTER TABLE pengadaan
+    ADD CONSTRAINT chk_pengadaan_status CHECK (status IN ('P', 'C', 'F', 'S'));
+
+CREATE OR REPLACE VIEW view_pengadaan AS
+SELECT
+    p.idpengadaan AS 'no',
+    p.timestamp AS tanggal,
+    v.nama_vendor,
+    u.username AS dibuat_oleh,
+    p.subtotal_nilai,
+    p.ppn,
+    p.total_nilai,
+    CASE
+        WHEN p.status = 'P' THEN 'Pending'
+        WHEN p.status = 'C' THEN 'Canceled'
+        WHEN p.status = 'F' THEN 'Finished'
+        WHEN p.status = 'S' THEN 'Sebagian'
+    END AS status
+FROM pengadaan p
+JOIN vendor v ON p.vendor_idvendor = v.idvendor
+JOIN USER u ON p.user_iduser = u.iduser;
+
+CREATE OR REPLACE VIEW view_penjualan_riwayat AS
+SELECT
+    p.idpenjualan AS no_penjualan,
+    p.created_at AS tanggal,
+    COALESCE(u.username, '-') AS kasir,
+    COALESCE(m.persen, 0) AS margin_persen,
+    p.subtotal_nilai,
+    p.ppn,
+    p.total_nilai
+FROM penjualan p
+LEFT JOIN USER u ON p.iduser = u.iduser
+LEFT JOIN margin_penjualan m ON p.idmargin_penjualan = m.idmargin_penjualan
+ORDER BY p.idpenjualan DESC;
+
+CREATE OR REPLACE VIEW view_retur_riwayat AS
+SELECT
+    r.idretur AS no_retur,
+    r.created_at AS tanggal,
+    r.idpenerimaan AS no_penerimaan,
+    COALESCE(u.username, '-') AS diproses_oleh,
+    COUNT(dr.iddetail_retur) AS jumlah_item_retur,
+    COALESCE(SUM(dr.jumlah), 0) AS total_qty_retur
+FROM retur r
+LEFT JOIN USER u ON r.iduser = u.iduser
+LEFT JOIN detail_retur dr ON r.idretur = dr.idretur
+GROUP BY r.idretur, r.created_at, r.idpenerimaan, u.username
+ORDER BY r.idretur DESC;
+
+
+
+
+
+CREATE OR REPLACE VIEW view_role AS
+SELECT
+    r.idrole AS 'no',
+    r.nama_role,
+    COUNT(u.iduser) AS total_users
+FROM role r
+LEFT JOIN USER u ON r.idrole = u.idrole
+GROUP BY r.idrole, r.nama_role;
+
+
+CREATE OR REPLACE VIEW view_active_margin AS
+SELECT
+    idmargin_penjualan AS 'no',
+    persen,
+    created_at,
+    updated_at
+FROM margin_penjualan
+WHERE STATUS = 1
+ORDER BY idmargin_penjualan DESC
+LIMIT 1;
+
+-- POS Available Items (Active items with stock > 0 & active margin baked in)
+CREATE OR REPLACE VIEW view_pos_barang AS
+SELECT
+    b.idbarrang AS idbarang,
+    b.jenis,
+    b.nama,
+    s.nama_satuan,
+    b.harga AS harga_beli,
+    ROUND(b.harga + (b.harga * COALESCE((
+        SELECT persen FROM margin_penjualan WHERE STATUS = 1 ORDER BY idmargin_penjualan DESC LIMIT 1
+    ), 0) / 100)) AS harga_jual,
+    fn_get_current_stock(b.idbarrang) AS stock
+FROM barang b
+JOIN satuan s ON b.idsatuan = s.idsatuan
+WHERE b.STATUS = 1;
+
+-- jual n Itemized Details
+CREATE OR REPLACE VIEW view_penjualan_riwayat AS
+SELECT
+    p.idpenjualan AS no_penjualan,
+    p.created_at AS tanggal,
+    COALESCE(u.username, '-') AS kasir,
+    COALESCE(m.persen, 0) AS margin_persen,
+    p.subtotal_nilai,
+    p.ppn,
+    p.total_nilai
+FROM penjualan p
+LEFT JOIN USER u ON p.iduser = u.iduser
+LEFT JOIN margin_penjualan m ON p.idmargin_penjualan = m.idmargin_penjualan
+ORDER BY p.idpenjualan DESC;
+
+CREATE OR REPLACE VIEW view_detail_penjualan AS
+SELECT
+    dp.iddetail_penjualan AS no_detail,
+    dp.penjualan_idpenjualan AS no_penjualan,
+    dp.idbarang,
+    b.nama AS nama_barang,
+    dp.jumlah,
+    dp.harga_satuan,
+    dp.subtotal
+FROM detail_penjualan dp
+JOIN barang b ON dp.idbarang = b.idbarrang
+ORDER BY dp.iddetail_penjualan ASC;
+
+
+CREATE OR REPLACE VIEW view_penerimaan_riwayat AS
+SELECT
+    p.idpenerimaan AS no_penerimaan,
+    p.created_at AS tanggal,
+    p.idpengadaan AS no_pengadaan,
+    COALESCE(u.username, '-') AS diterima_oleh,
+    p.status AS status_kode,
+    CASE
+        WHEN p.status = 'S' THEN 'Sebagian'
+        WHEN p.status = 'C' THEN 'Canceled'
+        ELSE 'Finished'
+    END AS status_label
+FROM penerimaan p
+LEFT JOIN USER u ON p.iduser = u.iduser
+ORDER BY p.idpenerimaan DESC;
+
+
+CREATE OR REPLACE VIEW view_retur_riwayat AS
+SELECT
+    r.idretur AS no_retur,
+    r.created_at AS tanggal,
+    r.idpenerimaan AS no_penerimaan,
+    COALESCE(u.username, '-') AS diproses_oleh
+FROM retur r
+LEFT JOIN USER u ON r.iduser = u.iduser
+ORDER BY r.idretur DESC;
+
+CREATE OR REPLACE VIEW view_detail_retur AS
+SELECT
+    dr.iddetail_retur AS no_detail_retur,
+    dr.idretur AS no_retur,
+    b.idbarrang AS idbarang,
+    b.nama AS nama_barang,
+    dr.jumlah,
+    dr.alasan
+FROM detail_retur dr
+JOIN detail_penerimaan dpn ON dr.iddetail_penerimaan = dpn.iddetail_penerimaan
+JOIN barang b ON dpn.barang_idbarang = b.idbarrang
+ORDER BY dr.iddetail_retur ASC;
